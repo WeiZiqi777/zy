@@ -55,6 +55,7 @@ let gestureStreak   = {};
 let palmX = 0, palmY = 0;
 let indexTip = { x: 0, y: 0, px: 0, py: 0 };
 let fistActive = false;
+let lastPinchDist = 0;
 
 function stableGesture(g) {
   gestureStreak[g] = (gestureStreak[g] || 0) + 1;
@@ -80,6 +81,7 @@ function classifyGesture(lm) {
   const f = fingerStates(lm);
   const extended = [f.index, f.middle, f.ring, f.pinky].filter(Boolean).length;
   const pinchDist = dist(lm[4], lm[8]);
+  lastPinchDist = pinchDist;
 
   palmX = 1 - (lm[0].x + lm[9].x) / 2;
   palmY = (lm[0].y + lm[9].y) / 2;
@@ -88,8 +90,8 @@ function classifyGesture(lm) {
   indexTip.y = lm[8].y;
 
   if (extended === 0) return 'fist';
-  // 捏手：拇指食指靠近即可，其他手指放松
-  if (pinchDist < 0.08 && !f.ring && !f.pinky) return 'pinch';
+  // 捏手：拇指食指靠近就算，其他手指随便
+  if (pinchDist < 0.12) return 'pinch';
   if (f.index && !f.middle && !f.ring && !f.pinky) return 'point';
   if (f.index && f.middle && !f.ring && !f.pinky) return 'peace';
   if (extended >= 3) return 'open';
@@ -163,18 +165,17 @@ function drawStreamOnBase(s) {
 function drawRipple(rp) {
   const cx = rp.x * W, cy = rp.y * H;
   const r = rp.r * Math.min(W, H);
-  for (let i = 0; i < 2; i++) {
-    const rr = r - i * r * 0.3;
+  // 多层同心椭圆环，像真实水波
+  const rings = 4;
+  for (let i = 0; i < rings; i++) {
+    const rr = r - i * r * 0.22;
     if (rr <= 1) continue;
-    const grad = ctx.createRadialGradient(cx, cy, rr * 0.8, cx, cy, rr);
-    const a = rp.alpha * (1 - i * 0.4);
-    grad.addColorStop(0, 'rgba(255,255,255,0)');
-    grad.addColorStop(0.8, `rgba(255,255,255,${a * 0.6})`);
-    grad.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = grad;
+    const a = rp.alpha * (1 - i * 0.25);
+    ctx.strokeStyle = `rgba(255,255,255,${a})`;
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, rr, rr * 0.35, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.ellipse(cx, cy, rr, rr * 0.32, 0, 0, Math.PI * 2);
+    ctx.stroke();
   }
 }
 
@@ -182,45 +183,52 @@ function drawLotus(l) {
   const cx = l.x * W, cy = l.y * H;
   const R = l.size * Math.min(W, H);
   const appear = Math.min(l.age / 40, 1);
-  const sway = Math.sin(l.phase + l.age * 0.02) * 0.06;
-  const a = appear * 0.7;
+  const sway = Math.sin(l.phase + l.age * 0.02) * 0.08;
+  const a = appear * 0.75;
 
+  // 外层放射扇形花瓣（参考图1那种炸开的扇形）
   for (let i = 0; i < l.outer; i++) {
     const ang = (i / l.outer) * Math.PI * 2 + sway;
-    const px = cx + Math.cos(ang) * R * 0.3;
-    const py = cy + Math.sin(ang) * R * 0.25;
-    const grad = ctx.createRadialGradient(px, py, 0, px, py, R);
-    grad.addColorStop(0, `rgba(${LOTUS_TIP[0]},${LOTUS_TIP[1]},${LOTUS_TIP[2]},${a})`);
-    grad.addColorStop(0.6, `rgba(${LOTUS_CREAM[0]},${LOTUS_CREAM[1]},${LOTUS_CREAM[2]},${a * 0.6})`);
+    const halfW = 0.18;  // 扇形半角
+    const grad = ctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, R);
+    grad.addColorStop(0, `rgba(${LOTUS_TIP[0]},${LOTUS_TIP[1]},${LOTUS_TIP[2]},${a * 0.3})`);
+    grad.addColorStop(0.7, `rgba(${LOTUS_CREAM[0]},${LOTUS_CREAM[1]},${LOTUS_CREAM[2]},${a * 0.5})`);
     grad.addColorStop(1, `rgba(${LOTUS_CREAM[0]},${LOTUS_CREAM[1]},${LOTUS_CREAM[2]},0)`);
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.rotate(ang);
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.ellipse(R * 0.4, 0, R * 0.55, R * 0.22, 0, 0, Math.PI * 2);
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R, ang - halfW, ang + halfW);
+    ctx.closePath();
     ctx.fill();
-    ctx.restore();
+    // 花瓣上的放射细线
+    ctx.strokeStyle = `rgba(${LOTUS_TIP[0]},${LOTUS_TIP[1]},${LOTUS_TIP[2]},${a * 0.3})`;
+    ctx.lineWidth = 0.8;
+    for (let k = -2; k <= 2; k++) {
+      const la = ang + k * halfW / 3;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(la) * R * 0.15, cy + Math.sin(la) * R * 0.15);
+      ctx.lineTo(cx + Math.cos(la) * R * 0.95, cy + Math.sin(la) * R * 0.95);
+      ctx.stroke();
+    }
   }
+  // 内层小扇形
   for (let i = 0; i < l.inner; i++) {
     const ang = (i / l.inner) * Math.PI * 2 + sway + 0.3;
-    const px = cx + Math.cos(ang) * R * 0.12;
-    const py = cy + Math.sin(ang) * R * 0.1;
-    const grad = ctx.createRadialGradient(px, py, 0, px, py, R * 0.6);
+    const halfW = 0.15;
+    const grad = ctx.createRadialGradient(cx, cy, R * 0.05, cx, cy, R * 0.6);
     grad.addColorStop(0, `rgba(${LOTUS_CREAM[0]},${LOTUS_CREAM[1]},${LOTUS_CREAM[2]},${a})`);
     grad.addColorStop(1, `rgba(${LOTUS_CREAM[0]},${LOTUS_CREAM[1]},${LOTUS_CREAM[2]},0)`);
-    ctx.save();
-    ctx.translate(px, py);
-    ctx.rotate(ang);
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.ellipse(R * 0.25, 0, R * 0.3, R * 0.14, 0, 0, Math.PI * 2);
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, R * 0.6, ang - halfW, ang + halfW);
+    ctx.closePath();
     ctx.fill();
-    ctx.restore();
   }
+  // 花心
   ctx.fillStyle = `rgba(210,185,130,${a * 0.9})`;
   ctx.beginPath();
-  ctx.arc(cx, cy, R * 0.09, 0, Math.PI * 2);
+  ctx.arc(cx, cy, R * 0.08, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -278,6 +286,11 @@ function frame() {
     if (lf.alpha < 0.02) { leaves.splice(i, 1); continue; }
     drawLeaf(lf);
   }
+
+  // 调试：左上角显示当前手势
+  ctx.fillStyle = 'rgba(80,70,60,0.5)';
+  ctx.font = '11px sans-serif';
+  ctx.fillText(`${currentGesture}  pinch=${lastPinchDist.toFixed(3)}`, 14, 20);
 
   requestAnimationFrame(frame);
 }
