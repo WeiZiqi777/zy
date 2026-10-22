@@ -314,8 +314,12 @@ const cam = new Camera(video, {
   height: 480,
 });
 
-cam.start()
-  .then(() => { hint.textContent = '比耶·色层留   轻点·涟漪   我爱你·墨笔   握拳·清空'; })
-  .catch(() => { hint.textContent = '摄像头启动失败，请检查浏览器权限后刷新'; });
+// 点进入按钮后才启动摄像头
+document.getElementById('enter').addEventListener('click', () => {
+  document.getElementById('overlay').classList.add('hide');
+  cam.start()
+    .then(() => { hint.textContent = '比耶·色层留   轻点·涟漪   我爱你·墨笔   握拳·清空'; })
+    .catch(() => { hint.textContent = '摄像头启动失败，请检查浏览器权限后刷新'; });
+});
 
 frame();
