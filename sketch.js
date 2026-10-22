@@ -47,13 +47,18 @@ const ripples  = [];
 const inkStrokes = [];   // 墨水笔迹
 let currentStroke = null;
 
-/* 墨水质感的低饱和颜色 */
+/* 墨水颜色：低饱和多变 */
 const INK_COLORS = [
   [70, 80, 100],   // 深灰蓝
   [90, 80, 70],    // 灰褐
   [70, 90, 80],    // 墨绿
   [80, 70, 90],    // 灰紫
   [80, 80, 80],    // 深灰
+  [110, 95, 80],   // 淡赭
+  [120, 100, 105], // 灰粉
+  [90, 110, 105],  // 灰青
+  [100, 85, 75],   // 深棕
+  [85, 95, 110],   // 灰蓝
 ];
 
 let currentGesture = 'none';
@@ -160,14 +165,13 @@ function drawRipple(rp) {
   }
 }
 
-/* ---------- 墨水质感笔迹：平滑曲线 + 多层晕染 ---------- */
+/* ---------- 墨水质感笔迹：柔和晕染，没有硬线 ---------- */
 function drawInkStroke(st) {
   if (st.points.length < 2) return;
   const [r, g, b] = st.color;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  // 用二次贝塞尔曲线平滑连接点
   const trace = () => {
     ctx.beginPath();
     ctx.moveTo(st.points[0].x * W, st.points[0].y * H);
@@ -181,16 +185,18 @@ function drawInkStroke(st) {
     ctx.stroke();
   };
 
-  // 多层晕染：从外到内逐渐加深
-  for (let layer = 4; layer >= 1; layer--) {
-    ctx.strokeStyle = `rgba(${r},${g},${b},${st.alpha * 0.06 * layer})`;
-    ctx.lineWidth = 8 + layer * 5;
+  // 只画柔和晕染，没有主线
+  const layers = [
+    { w: 22, a: 0.05 },
+    { w: 14, a: 0.07 },
+    { w: 8,  a: 0.09 },
+    { w: 4,  a: 0.08 },
+  ];
+  for (const ly of layers) {
+    ctx.strokeStyle = `rgba(${r},${g},${b},${st.alpha * ly.a})`;
+    ctx.lineWidth = ly.w;
     trace();
   }
-  // 主线
-  ctx.strokeStyle = `rgba(${r},${g},${b},${st.alpha * 0.5})`;
-  ctx.lineWidth = 1.8;
-  trace();
 }
 
 /* ============================================================ */
