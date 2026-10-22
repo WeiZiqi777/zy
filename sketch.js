@@ -160,30 +160,37 @@ function drawRipple(rp) {
   }
 }
 
-/* ---------- 墨水质感笔迹 ---------- */
+/* ---------- 墨水质感笔迹：平滑曲线 + 多层晕染 ---------- */
 function drawInkStroke(st) {
   if (st.points.length < 2) return;
   const [r, g, b] = st.color;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  // 晕染层：粗线低透明
-  ctx.strokeStyle = `rgba(${r},${g},${b},${st.alpha * 0.25})`;
-  ctx.lineWidth = 10;
-  ctx.beginPath();
-  ctx.moveTo(st.points[0].x * W, st.points[0].y * H);
-  for (let i = 1; i < st.points.length; i++) {
-    ctx.lineTo(st.points[i].x * W, st.points[i].y * H);
+
+  // 用二次贝塞尔曲线平滑连接点
+  const trace = () => {
+    ctx.beginPath();
+    ctx.moveTo(st.points[0].x * W, st.points[0].y * H);
+    for (let i = 1; i < st.points.length - 1; i++) {
+      const xc = (st.points[i].x + st.points[i + 1].x) / 2 * W;
+      const yc = (st.points[i].y + st.points[i + 1].y) / 2 * H;
+      ctx.quadraticCurveTo(st.points[i].x * W, st.points[i].y * H, xc, yc);
+    }
+    const last = st.points[st.points.length - 1];
+    ctx.lineTo(last.x * W, last.y * H);
+    ctx.stroke();
+  };
+
+  // 多层晕染：从外到内逐渐加深
+  for (let layer = 4; layer >= 1; layer--) {
+    ctx.strokeStyle = `rgba(${r},${g},${b},${st.alpha * 0.06 * layer})`;
+    ctx.lineWidth = 8 + layer * 5;
+    trace();
   }
-  ctx.stroke();
-  // 主线：细线稍实
-  ctx.strokeStyle = `rgba(${r},${g},${b},${st.alpha * 0.55})`;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(st.points[0].x * W, st.points[0].y * H);
-  for (let i = 1; i < st.points.length; i++) {
-    ctx.lineTo(st.points[i].x * W, st.points[i].y * H);
-  }
-  ctx.stroke();
+  // 主线
+  ctx.strokeStyle = `rgba(${r},${g},${b},${st.alpha * 0.5})`;
+  ctx.lineWidth = 1.8;
+  trace();
 }
 
 /* ============================================================ */
@@ -262,10 +269,11 @@ function onResults(results) {
         alpha: 1,
       };
     } else {
-      currentStroke.points.push({ x: indexTip.x, y: indexTip.y });
+      const last = currentStroke.points[currentStroke.points.length - 1];
+      const d = Math.hypot(indexTip.x - last.x, indexTip.y - last.y);
+      if (d > 0.004) currentStroke.points.push({ x: indexTip.x, y: indexTip.y });
     }
   } else if (currentStroke) {
-    // 离开ily手势，把当前笔迹存入数组
     inkStrokes.push(currentStroke);
     currentStroke = null;
   }
