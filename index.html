@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veil · 色层之湖</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<video id="cam" playsinline muted></video>
+<canvas id="base"></canvas>
+<canvas id="scene"></canvas>
+<div id="hint">正在启动摄像头…</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.min.js"></script>
+<script src="sketch.js"></script>
+</body>
+</html>
