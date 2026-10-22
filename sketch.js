@@ -44,6 +44,17 @@ function nextColor() {
 
 const streams  = [];
 const ripples  = [];
+const inkStrokes = [];   // 墨水笔迹
+let currentStroke = null;
+
+/* 墨水质感的低饱和颜色 */
+const INK_COLORS = [
+  [70, 80, 100],   // 深灰蓝
+  [90, 80, 70],    // 灰褐
+  [70, 90, 80],    // 墨绿
+  [80, 70, 90],    // 灰紫
+  [80, 80, 80],    // 深灰
+];
 
 let currentGesture = 'none';
 let gestureStreak   = {};
@@ -82,6 +93,8 @@ function classifyGesture(lm) {
   if (extended === 0) return 'fist';
   if (f.index && f.middle && !f.ring && !f.pinky) return 'peace';
   if (f.index && !f.middle && !f.ring && !f.pinky) return 'point';
+  // 我爱你：食指+小指伸，中指+无名指弯
+  if (f.index && f.pinky && !f.middle && !f.ring) return 'ily';
   if (extended >= 3) return 'open';
   return 'other';
 }
@@ -147,6 +160,32 @@ function drawRipple(rp) {
   }
 }
 
+/* ---------- 墨水质感笔迹 ---------- */
+function drawInkStroke(st) {
+  if (st.points.length < 2) return;
+  const [r, g, b] = st.color;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // 晕染层：粗线低透明
+  ctx.strokeStyle = `rgba(${r},${g},${b},${st.alpha * 0.25})`;
+  ctx.lineWidth = 10;
+  ctx.beginPath();
+  ctx.moveTo(st.points[0].x * W, st.points[0].y * H);
+  for (let i = 1; i < st.points.length; i++) {
+    ctx.lineTo(st.points[i].x * W, st.points[i].y * H);
+  }
+  ctx.stroke();
+  // 主线：细线稍实
+  ctx.strokeStyle = `rgba(${r},${g},${b},${st.alpha * 0.55})`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(st.points[0].x * W, st.points[0].y * H);
+  for (let i = 1; i < st.points.length; i++) {
+    ctx.lineTo(st.points[i].x * W, st.points[i].y * H);
+  }
+  ctx.stroke();
+}
+
 /* ============================================================ */
 function frame() {
   ctx.clearRect(0, 0, W, H);
@@ -167,6 +206,16 @@ function frame() {
     if (rp.r > rp.maxR || rp.alpha < 0.02) { ripples.splice(i, 1); continue; }
     drawRipple(rp);
   }
+
+  // 墨水笔迹：每帧衰减透明度，慢慢散去
+  for (let i = inkStrokes.length - 1; i >= 0; i--) {
+    const st = inkStrokes[i];
+    st.alpha *= 0.995;
+    if (st.alpha < 0.02) { inkStrokes.splice(i, 1); continue; }
+    drawInkStroke(st);
+  }
+  // 正在画的笔迹
+  if (currentStroke) drawInkStroke(currentStroke);
 
   ctx.fillStyle = 'rgba(80,70,60,0.5)';
   ctx.font = '11px sans-serif';
@@ -204,6 +253,23 @@ function onResults(results) {
     }
   }
 
+  // 我爱你手势：墨水画笔跟随食指尖
+  if (currentGesture === 'ily') {
+    if (!currentStroke) {
+      currentStroke = {
+        points: [{ x: indexTip.x, y: indexTip.y }],
+        color: INK_COLORS[Math.floor(Math.random() * INK_COLORS.length)],
+        alpha: 1,
+      };
+    } else {
+      currentStroke.points.push({ x: indexTip.x, y: indexTip.y });
+    }
+  } else if (currentStroke) {
+    // 离开ily手势，把当前笔迹存入数组
+    inkStrokes.push(currentStroke);
+    currentStroke = null;
+  }
+
   // 握拳：清空画面
   if (currentGesture === 'fist' && fistCooldown <= 0) {
     paintBase();
@@ -235,7 +301,7 @@ const cam = new Camera(video, {
 });
 
 cam.start()
-  .then(() => { hint.textContent = '比耶·色层留   轻点·涟漪   握拳·清空'; })
+  .then(() => { hint.textContent = '比耶·色层留   轻点·涟漪   我爱你·墨笔   握拳·清空'; })
   .catch(() => { hint.textContent = '摄像头启动失败，请检查浏览器权限后刷新'; });
 
 frame();
