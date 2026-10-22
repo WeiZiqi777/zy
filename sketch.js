@@ -89,9 +89,9 @@ function classifyGesture(lm) {
   indexTip.x = 1 - lm[8].x;
   indexTip.y = lm[8].y;
 
-  if (extended === 0) return 'fist';
-  // 捏手：拇指食指靠近就算，其他手指随便
+  // 优先级：先判捏手（拇指食指靠近最可靠），再判其他
   if (pinchDist < 0.12) return 'pinch';
+  if (extended === 0) return 'fist';
   if (f.index && !f.middle && !f.ring && !f.pinky) return 'point';
   if (f.index && f.middle && !f.ring && !f.pinky) return 'peace';
   if (extended >= 3) return 'open';
