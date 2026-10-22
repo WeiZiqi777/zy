@@ -1,5 +1,6 @@
 /* ============================================================
    Veil · 色层之湖
+   比耶 = 色流垂落 / 轻点 = 涟漪 / 握拳 = 清空
    ============================================================ */
 
 const video     = document.getElementById('cam');
@@ -19,21 +20,21 @@ window.addEventListener('resize', resize);
 
 function paintBase() {
   const g = bctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#d8d4c8');
-  g.addColorStop(1, '#c8c4b8');
+  g.addColorStop(0, '#d6cfc0');
+  g.addColorStop(1, '#c0b8a8');
   bctx.fillStyle = g;
   bctx.fillRect(0, 0, W, H);
 }
 
-/* ---------- Veil 真迹配色：蓝绿灰系 ---------- */
+/* ---------- 大地灰调 ---------- */
 const VEIL_COLORS = [
-  [90, 100, 130],    // 深灰靛蓝
-  [100, 130, 120],   // 灰青
-  [110, 120, 95],    // 橄榄绿
-  [110, 100, 120],   // 灰紫
-  [120, 110, 100],   // 灰褐
-  [80, 120, 110],    // 青绿
-  [95, 110, 125],    // 灰蓝
+  [140, 150, 130],
+  [130, 150, 165],
+  [160, 140, 125],
+  [155, 145, 160],
+  [135, 155, 150],
+  [170, 150, 125],
+  [175, 160, 155],
 ];
 let colorCursor = 0;
 function nextColor() {
@@ -41,21 +42,13 @@ function nextColor() {
   return VEIL_COLORS[colorCursor];
 }
 
-const LOTUS_CREAM = [240, 230, 215];
-const LOTUS_TIP   = [220, 195, 185];
-const LEAF_GREEN  = [160, 175, 150];
-
 const streams  = [];
 const ripples  = [];
-const lotuses  = [];
-const leaves   = [];
 
 let currentGesture = 'none';
 let gestureStreak   = {};
 let palmX = 0, palmY = 0;
 let indexTip = { x: 0, y: 0, px: 0, py: 0 };
-let fistActive = false;
-let lastPinchDist = 0;
 
 function stableGesture(g) {
   gestureStreak[g] = (gestureStreak[g] || 0) + 1;
@@ -69,7 +62,6 @@ function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
 function fingerStates(lm) {
   const w = lm[0];
   return {
-    thumb:  dist(lm[4],  w) > dist(lm[3],  w) * 1.02,
     index:  dist(lm[8],  w) > dist(lm[6],  w) * 1.1,
     middle: dist(lm[12], w) > dist(lm[10], w) * 1.1,
     ring:   dist(lm[16], w) > dist(lm[14], w) * 1.1,
@@ -80,8 +72,6 @@ function fingerStates(lm) {
 function classifyGesture(lm) {
   const f = fingerStates(lm);
   const extended = [f.index, f.middle, f.ring, f.pinky].filter(Boolean).length;
-  const pinchDist = dist(lm[4], lm[8]);
-  lastPinchDist = pinchDist;
 
   palmX = 1 - (lm[0].x + lm[9].x) / 2;
   palmY = (lm[0].y + lm[9].y) / 2;
@@ -89,26 +79,24 @@ function classifyGesture(lm) {
   indexTip.x = 1 - lm[8].x;
   indexTip.y = lm[8].y;
 
-  // 优先级：先判捏手（拇指食指靠近最可靠），再判其他
-  if (pinchDist < 0.12) return 'pinch';
   if (extended === 0) return 'fist';
-  if (f.index && !f.middle && !f.ring && !f.pinky) return 'point';
   if (f.index && f.middle && !f.ring && !f.pinky) return 'peace';
+  if (f.index && !f.middle && !f.ring && !f.pinky) return 'point';
   if (extended >= 3) return 'open';
   return 'other';
 }
 
 /* ============================================================ */
 function spawnStream(x) {
-  if (streams.length > 20) return;
+  if (streams.length > 50) return;
   streams.push({
     x0: x,
-    drift: (Math.random() - 0.5) * 0.1,
-    width: 0.15 + Math.random() * 0.15,   // 宽幅窗帘式色带
+    drift: (Math.random() - 0.5) * 0.2,
+    width: 0.06 + Math.random() * 0.1,
     length: 0,
-    speed: 0.001 + Math.random() * 0.0015,
+    speed: 0.0012 + Math.random() * 0.002,
     color: nextColor(),
-    alpha: 0.12 + Math.random() * 0.08,
+    alpha: 0.08 + Math.random() * 0.05,
     wobble: Math.random() * Math.PI * 2,
     done: false,
   });
@@ -118,25 +106,7 @@ function spawnRipple(x, y) {
   ripples.push({ x, y, r: 0.005, maxR: 0.2 + Math.random() * 0.1, alpha: 0.35 });
 }
 
-function spawnLotus(x, y) {
-  lotuses.push({
-    x, y, age: 0,
-    outer: 8, inner: 6,
-    size: 0.12 + Math.random() * 0.05,
-    phase: Math.random() * Math.PI * 2,
-  });
-  for (let i = 0; i < 3; i++) {
-    leaves.push({
-      x: x + (Math.random() - 0.5) * 0.3,
-      y: y + 0.1 + Math.random() * 0.18,
-      r: 0.03 + Math.random() * 0.03,
-      drift: Math.random() * Math.PI * 2,
-      alpha: 0.2,
-    });
-  }
-}
-
-/* ---------- 水的质感：一串径向渐变圆点叠成朦胧色柱 ---------- */
+/* ---------- 朦胧色柱 ---------- */
 function drawStreamOnBase(s) {
   const prev = Math.max(0, s.length - s.speed * 1.5);
   const topPx = prev * H;
@@ -144,12 +114,12 @@ function drawStreamOnBase(s) {
   if (botPx <= topPx) return;
 
   const [r, g, b] = s.color;
-  const step = 6;  // 每 6px 一个圆点
+  const step = 6;
   for (let y = topPx; y < botPx; y += step) {
     const t = y / H;
     const cx = (s.x0 + s.drift * t * t + Math.sin(t * 15 + s.wobble) * 0.01) * W;
     const rad = s.width * W * (0.6 + 0.4 * Math.sin(t * 12 + s.wobble));
-    const a = s.alpha * (0.3 + 0.7 * t);  // 上淡下实
+    const a = s.alpha * (0.3 + 0.7 * t);
 
     const grad = bctx.createRadialGradient(cx, y, 0, cx, y, rad);
     grad.addColorStop(0, `rgba(${r},${g},${b},${a})`);
@@ -165,9 +135,7 @@ function drawStreamOnBase(s) {
 function drawRipple(rp) {
   const cx = rp.x * W, cy = rp.y * H;
   const r = rp.r * Math.min(W, H);
-  // 多层同心椭圆环，像真实水波
-  const rings = 4;
-  for (let i = 0; i < rings; i++) {
+  for (let i = 0; i < 4; i++) {
     const rr = r - i * r * 0.22;
     if (rr <= 1) continue;
     const a = rp.alpha * (1 - i * 0.25);
@@ -179,80 +147,9 @@ function drawRipple(rp) {
   }
 }
 
-function drawLotus(l) {
-  const cx = l.x * W, cy = l.y * H;
-  const R = l.size * Math.min(W, H);
-  const appear = Math.min(l.age / 40, 1);
-  const sway = Math.sin(l.phase + l.age * 0.02) * 0.08;
-  const a = appear * 0.75;
-
-  // 外层放射扇形花瓣（参考图1那种炸开的扇形）
-  for (let i = 0; i < l.outer; i++) {
-    const ang = (i / l.outer) * Math.PI * 2 + sway;
-    const halfW = 0.18;  // 扇形半角
-    const grad = ctx.createRadialGradient(cx, cy, R * 0.1, cx, cy, R);
-    grad.addColorStop(0, `rgba(${LOTUS_TIP[0]},${LOTUS_TIP[1]},${LOTUS_TIP[2]},${a * 0.3})`);
-    grad.addColorStop(0.7, `rgba(${LOTUS_CREAM[0]},${LOTUS_CREAM[1]},${LOTUS_CREAM[2]},${a * 0.5})`);
-    grad.addColorStop(1, `rgba(${LOTUS_CREAM[0]},${LOTUS_CREAM[1]},${LOTUS_CREAM[2]},0)`);
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, R, ang - halfW, ang + halfW);
-    ctx.closePath();
-    ctx.fill();
-    // 花瓣上的放射细线
-    ctx.strokeStyle = `rgba(${LOTUS_TIP[0]},${LOTUS_TIP[1]},${LOTUS_TIP[2]},${a * 0.3})`;
-    ctx.lineWidth = 0.8;
-    for (let k = -2; k <= 2; k++) {
-      const la = ang + k * halfW / 3;
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(la) * R * 0.15, cy + Math.sin(la) * R * 0.15);
-      ctx.lineTo(cx + Math.cos(la) * R * 0.95, cy + Math.sin(la) * R * 0.95);
-      ctx.stroke();
-    }
-  }
-  // 内层小扇形
-  for (let i = 0; i < l.inner; i++) {
-    const ang = (i / l.inner) * Math.PI * 2 + sway + 0.3;
-    const halfW = 0.15;
-    const grad = ctx.createRadialGradient(cx, cy, R * 0.05, cx, cy, R * 0.6);
-    grad.addColorStop(0, `rgba(${LOTUS_CREAM[0]},${LOTUS_CREAM[1]},${LOTUS_CREAM[2]},${a})`);
-    grad.addColorStop(1, `rgba(${LOTUS_CREAM[0]},${LOTUS_CREAM[1]},${LOTUS_CREAM[2]},0)`);
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, R * 0.6, ang - halfW, ang + halfW);
-    ctx.closePath();
-    ctx.fill();
-  }
-  // 花心
-  ctx.fillStyle = `rgba(210,185,130,${a * 0.9})`;
-  ctx.beginPath();
-  ctx.arc(cx, cy, R * 0.08, 0, Math.PI * 2);
-  ctx.fill();
-}
-
-function drawLeaf(lf) {
-  const cx = lf.x * W, cy = lf.y * H;
-  const r = lf.r * Math.min(W, H);
-  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
-  grad.addColorStop(0, `rgba(${LEAF_GREEN[0]},${LEAF_GREEN[1]},${LEAF_GREEN[2]},${lf.alpha})`);
-  grad.addColorStop(0.8, `rgba(${LEAF_GREEN[0]},${LEAF_GREEN[1]},${LEAF_GREEN[2]},${lf.alpha * 0.4})`);
-  grad.addColorStop(1, `rgba(${LEAF_GREEN[0]},${LEAF_GREEN[1]},${LEAF_GREEN[2]},0)`);
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.ellipse(cx, cy, r, r * 0.6, lf.drift, 0, Math.PI * 2);
-  ctx.fill();
-}
-
 /* ============================================================ */
 function frame() {
   ctx.clearRect(0, 0, W, H);
-
-  if (fistActive) {
-    bctx.fillStyle = 'rgba(216, 212, 200, 0.05)';
-    bctx.fillRect(0, 0, W, H);
-  }
 
   for (let i = streams.length - 1; i >= 0; i--) {
     const s = streams[i];
@@ -266,47 +163,27 @@ function frame() {
   for (let i = ripples.length - 1; i >= 0; i--) {
     const rp = ripples[i];
     rp.r += 0.0025;
-    rp.alpha *= fistActive ? 0.9 : 0.98;
+    rp.alpha *= 0.98;
     if (rp.r > rp.maxR || rp.alpha < 0.02) { ripples.splice(i, 1); continue; }
     drawRipple(rp);
   }
 
-  for (let i = lotuses.length - 1; i >= 0; i--) {
-    const l = lotuses[i];
-    l.age += fistActive ? 2 : 1;
-    if (fistActive && l.age > 120) { lotuses.splice(i, 1); continue; }
-    drawLotus(l);
-  }
-
-  for (let i = leaves.length - 1; i >= 0; i--) {
-    const lf = leaves[i];
-    lf.x += Math.sin(lf.drift) * 0.0004;
-    lf.y += 0.0003;
-    lf.alpha *= fistActive ? 0.92 : 0.999;
-    if (lf.alpha < 0.02) { leaves.splice(i, 1); continue; }
-    drawLeaf(lf);
-  }
-
-  // 调试：左上角显示当前手势
   ctx.fillStyle = 'rgba(80,70,60,0.5)';
   ctx.font = '11px sans-serif';
-  ctx.fillText(`${currentGesture}  pinch=${lastPinchDist.toFixed(3)}`, 14, 20);
+  ctx.fillText(currentGesture, 14, 20);
 
   requestAnimationFrame(frame);
 }
 
 /* ============================================================ */
-let pinchHold = 0;
-let lotusCooldown = 0;
 let rippleCooldown = 0;
+let fistCooldown = 0;
 
 function onResults(results) {
   hint.classList.add('fade');
 
   if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
     currentGesture = 'none';
-    fistActive = false;
-    pinchHold = 0;
     return;
   }
 
@@ -315,16 +192,10 @@ function onResults(results) {
   if (stableGesture(g)) currentGesture = g;
 
   if (currentGesture === 'peace') {
-    // 比耶：整个屏幕宽度均匀倾泻宽幅色带
-    const n = 3;
-    for (let i = 0; i < n; i++) {
-      spawnStream((i + 0.5) / n + (Math.random() - 0.5) * 0.1);
-    }
-    fistActive = false;
+    for (let i = 0; i < 2; i++) spawnStream(Math.random());
   }
 
   if (currentGesture === 'point') {
-    fistActive = false;
     rippleCooldown--;
     const tipSpeed = Math.hypot(indexTip.x - indexTip.px, indexTip.y - indexTip.py);
     if (tipSpeed > 0.02 && rippleCooldown <= 0) {
@@ -333,19 +204,14 @@ function onResults(results) {
     }
   }
 
-  if (currentGesture === 'pinch') {
-    fistActive = false;
-    pinchHold++;
-    lotusCooldown--;
-    if (pinchHold > 20 && lotusCooldown <= 0) {
-      spawnLotus(palmX, palmY);
-      lotusCooldown = 80;
-    }
-  } else {
-    pinchHold = 0;
+  // 握拳：清空画面
+  if (currentGesture === 'fist' && fistCooldown <= 0) {
+    paintBase();
+    streams.length = 0;
+    ripples.length = 0;
+    fistCooldown = 30;  // 防止连续触发
   }
-
-  if (currentGesture === 'fist') fistActive = true;
+  if (currentGesture !== 'fist') fistCooldown = 0;
 }
 
 /* ---------- 启动 ---------- */
@@ -369,7 +235,7 @@ const cam = new Camera(video, {
 });
 
 cam.start()
-  .then(() => { hint.textContent = '比耶·倾泻色层   轻点·水面涟漪   捏手·薄纱荷花   握拳·色层隐去'; })
+  .then(() => { hint.textContent = '比耶·色层留   轻点·涟漪   握拳·清空'; })
   .catch(() => { hint.textContent = '摄像头启动失败，请检查浏览器权限后刷新'; });
 
 frame();
