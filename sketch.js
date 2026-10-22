@@ -19,21 +19,21 @@ window.addEventListener('resize', resize);
 
 function paintBase() {
   const g = bctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#d6cfc0');
-  g.addColorStop(1, '#c0b8a8');
+  g.addColorStop(0, '#d8d4c8');
+  g.addColorStop(1, '#c8c4b8');
   bctx.fillStyle = g;
   bctx.fillRect(0, 0, W, H);
 }
 
-/* ---------- 极淡大地灰调（Veil 实感） ---------- */
+/* ---------- Veil 真迹配色：蓝绿灰系 ---------- */
 const VEIL_COLORS = [
-  [140, 150, 130],   // 灰橄榄
-  [130, 150, 165],   // 灰蓝
-  [160, 140, 125],   // 灰褐
-  [155, 145, 160],   // 灰紫
-  [135, 155, 150],   // 灰青
-  [170, 150, 125],   // 淡赭
-  [175, 160, 155],   // 灰粉（极淡）
+  [90, 100, 130],    // 深灰靛蓝
+  [100, 130, 120],   // 灰青
+  [110, 120, 95],    // 橄榄绿
+  [110, 100, 120],   // 灰紫
+  [120, 110, 100],   // 灰褐
+  [80, 120, 110],    // 青绿
+  [95, 110, 125],    // 灰蓝
 ];
 let colorCursor = 0;
 function nextColor() {
@@ -100,15 +100,15 @@ function classifyGesture(lm) {
 
 /* ============================================================ */
 function spawnStream(x) {
-  if (streams.length > 50) return;
+  if (streams.length > 20) return;
   streams.push({
     x0: x,
-    drift: (Math.random() - 0.5) * 0.2,
-    width: 0.06 + Math.random() * 0.1,
+    drift: (Math.random() - 0.5) * 0.1,
+    width: 0.15 + Math.random() * 0.15,   // 宽幅窗帘式色带
     length: 0,
-    speed: 0.0012 + Math.random() * 0.002,
+    speed: 0.001 + Math.random() * 0.0015,
     color: nextColor(),
-    alpha: 0.08 + Math.random() * 0.05,
+    alpha: 0.12 + Math.random() * 0.08,
     wobble: Math.random() * Math.PI * 2,
     done: false,
   });
@@ -250,7 +250,7 @@ function frame() {
   ctx.clearRect(0, 0, W, H);
 
   if (fistActive) {
-    bctx.fillStyle = 'rgba(214, 207, 192, 0.05)';
+    bctx.fillStyle = 'rgba(216, 212, 200, 0.05)';
     bctx.fillRect(0, 0, W, H);
   }
 
@@ -315,7 +315,11 @@ function onResults(results) {
   if (stableGesture(g)) currentGesture = g;
 
   if (currentGesture === 'peace') {
-    for (let i = 0; i < 2; i++) spawnStream(Math.random());
+    // 比耶：整个屏幕宽度均匀倾泻宽幅色带
+    const n = 3;
+    for (let i = 0; i < n; i++) {
+      spawnStream((i + 0.5) / n + (Math.random() - 0.5) * 0.1);
+    }
     fistActive = false;
   }
 
